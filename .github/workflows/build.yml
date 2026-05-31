@@ -46,8 +46,8 @@ jobs:
           contains(github.event.head_commit.message, 'DEPS')
         run: ./gradlew dependencies --stacktrace
 
-      - name: Build fabricWrapper subproject
-        run: ./gradlew :fabricWrapper:build
+      - name: Build project
+        run: ./gradlew build
 
       - name: Capture build artifacts
         uses: actions/upload-artifact@v7
