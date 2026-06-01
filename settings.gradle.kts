@@ -21,17 +21,35 @@ pluginManagement {
     }
 }
 
-val settings = JsonSlurper().parseText(file("settings.json").readText()) as Map<String, Any>
-@Suppress("UNCHECKED_CAST")
-val versions = settings["versions"] as List<String>
+val jsonFile = file("settings.json")
+val jsonText = jsonFile.readText()
+val settings = JsonSlurper().parseText(jsonText) as Map<*, *>
+val versions = settings["versions"] as List<*>
 
 for (version in versions) {
     include(":$version")
-
-    val proj = project(":$version")
-    proj.projectDir = file("versions/$version")
-    proj.buildFileName = "../../common.gradle"
+    project(":$version").apply {
+        projectDir = file("versions/$version")
+        buildFileName = if (parseMcVersionToNumber(version as String) > 260000) {
+            "../../build.unobfuscated.gradle.kts"
+        } else {
+            "../../build.obfuscated.gradle.kts"
+        }
+    }
 }
 
-// Keep fabricWrapper as the version-pack aggregator (project-specific)
-include(":fabricWrapper")
+fun parseMcVersionToNumber(mcVersionStr: String): Int {
+    if (mcVersionStr.isBlank()) return 0
+    return try {
+        val cleanVersion = mcVersionStr.split("-")[0].replace(Regex("[^0-9.]"), "")
+        val versionParts = cleanVersion.split(".").filter { it.isNotEmpty() }
+        val major = versionParts.getOrNull(0)?.toIntOrNull() ?: 0
+        val minor = versionParts.getOrNull(1)?.toIntOrNull() ?: 0
+        val patch = versionParts.getOrNull(2)?.toIntOrNull() ?: 0
+        major * 10000 + minor * 100 + patch
+    } catch (_: Exception) {
+        0
+    }
+}
+
+rootProject.name = "remote-inventory"

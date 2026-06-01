@@ -1,0 +1,16 @@
+name: Dev Builds
+
+on:
+  push:
+    branches: [ '**' ] # stop build tag commit
+    paths:
+      - "*.gradle"
+      - "gradle.properties"
+      - "src/**"
+      - "versions/**"
+      - ".github/**"
+  pull_request:
+
+jobs:
+  build:
+    uses: ./.github/workflows/build.yml
