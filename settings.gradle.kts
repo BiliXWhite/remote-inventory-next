@@ -52,4 +52,4 @@ fun parseMcVersionToNumber(mcVersionStr: String): Int {
     }
 }
 
-rootProject.name = "remote-inventory"
+rootProject.name = "remote-inventory-server"

@@ -16,6 +16,10 @@ on:
         description: Whether to create a Pre-Release
         type: boolean
         default: false
+      isPackages:
+        description: publish mods to GitHub Packages.
+        type: boolean
+        default: false
       target_subproject:
         description: |-
           The subproject name(s) of the specified Minecraft version to be released, seperated with ",".
@@ -107,6 +111,13 @@ jobs:
       target_subproject: ${{ github.event.inputs.target_subproject }}
       release: true
       download_dependencies: true
+
+  publish:
+    if: github.event.inputs.isPackages == true
+    uses: ./.github/workflows/publish.yml
+    secrets: inherit
+    needs:
+      - build
 
   release:
     needs:

@@ -24,6 +24,7 @@ val Project.modVersion get() = propStr("mod_version")
 val Project.modMavenGroup get() = propStr("mod_maven_group")
 val Project.modArchivesBaseName get() = propStr("mod_archives_base_name")
 
+val Project.modDescription get() = propStrOrNull("mod_description")
 val Project.modHomepage get() = propStrOrNull("mod_homepage")
 val Project.modLicense get() = propStrOrNull("mod_license")
 val Project.modSources get() = propStrOrNull("mod_sources")
@@ -34,6 +35,8 @@ val Project.mcVersion get() = propStrOrNull("minecraft_version")
 val Project.mcVersionInt get() = parseMcVersionToNumber(mcVersion ?: "")
 val Project.fabricLoaderVersion get() = propStrOrNull("loader_version")
 val Project.fabricApiVersion get() = propStrOrNull("fabric_version")
+
+val Project.lombokVersion get() = propStr("lombok_version")
 
 val Project.javaVersion
     get() = when {
@@ -74,6 +77,7 @@ val Project.placeholderProps: Map<String, Any?>
         "mod_id" to modId,
         "mod_name" to modName,
         "mod_version" to fullProjectVersion,
+        "mod_description" to modDescription,
         "mod_homepage" to modHomepage,
         "mod_license" to modLicense,
         "mod_sources" to modSources,

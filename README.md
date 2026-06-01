@@ -114,17 +114,21 @@ Client                              Server
 ## Build
 
 ```bash
-# Build all versions + aggregate version pack
-./gradlew fabricWrapper:build
+# Build all versions
+./gradlew build
 
 # Build a single version
-./gradlew :1.21.11:buildAndCollect
+./gradlew :1.21.11:build
 
 # Run the server for one version
 ./gradlew :1.21.11:runServer
 ```
-
-Output JARs go to `fabricWrapper/build/libs/` (version pack) and each `versions/*/build/libs/` (individual versions).
+Output JARs go to `versions/*/build/libs/`.
+```
+# If you want to build all versions and collect the JARs into a single folder:
+./gradlew buildAndGather
+```
+Output JARs go to `build/libs/` (project root directory).
 
 ## Dependencies
 
@@ -177,4 +181,4 @@ Uses [Fallen-Breath preprocessor](https://github.com/Fallen-Breath/preprocessor)
 
 ## License
 
-AGPL-3.0
+[AGPL-3.0](https://www.gnu.org/licenses/agpl-3.0.txt)

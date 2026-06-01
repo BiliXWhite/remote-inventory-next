@@ -2,6 +2,7 @@ import org.gradle.api.Plugin
 import org.gradle.api.Project
 import org.gradle.api.JavaVersion
 import org.gradle.api.file.DuplicatesStrategy
+import org.gradle.api.plugins.JavaPlugin
 import org.gradle.api.plugins.JavaPluginExtension
 import org.gradle.api.tasks.bundling.Jar
 import org.gradle.api.tasks.compile.JavaCompile
@@ -15,6 +16,7 @@ abstract class ModPlugin : Plugin<Project> {
         pluginManager.apply("java")
 
         configureJava()
+        configureLombok()
         configureJavaCompile()
         configureResources()
         configureJar()
@@ -25,6 +27,19 @@ abstract class ModPlugin : Plugin<Project> {
             sourceCompatibility = javaVersion
             targetCompatibility = javaVersion
             // withSourcesJar()
+        }
+    }
+
+    private fun Project.configureLombok() {
+        pluginManager.withPlugin("java") {
+            dependencies.add(
+                JavaPlugin.COMPILE_ONLY_CONFIGURATION_NAME,
+                "org.projectlombok:lombok:$lombokVersion"
+            )
+            dependencies.add(
+                JavaPlugin.ANNOTATION_PROCESSOR_CONFIGURATION_NAME,
+                "org.projectlombok:lombok:$lombokVersion"
+            )
         }
     }
 
@@ -45,7 +60,6 @@ abstract class ModPlugin : Plugin<Project> {
 
     private fun Project.configureResources() {
         tasks.withType<ProcessResources>().configureEach {
-            from("quickshulker.accesswidener")
             inputs.properties(placeholderProps)
             filesMatching(listOf("*.mixins.json", "*.mod.json", "META-INF/*mods.toml")) {
                 expand(placeholderProps)

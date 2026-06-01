@@ -114,17 +114,21 @@
 ## 构建
 
 ```bash
-# 构建所有版本 + 聚合版本包
-./gradlew fabricWrapper:build
+# 构建所有版本
+./gradlew build
 
 # 构建单个版本
-./gradlew :1.21.11:buildAndCollect
+./gradlew :1.21.11:build
 
 # 运行单个版本的服务端
 ./gradlew :1.21.11:runServer
 ```
-
-构建产物：`fabricWrapper/build/libs/`（版本包）及各 `versions/*/build/libs/`（单个版本）。
+构建产物：`versions/*/build/libs/`。
+```
+# 构建所有版本并将 JAR 收集到单个文件夹中:
+./gradlew buildAndGather
+```
+所有构建产物：`build/libs/`（项目根目录）。
 
 ## 依赖
 
@@ -169,12 +173,12 @@ remote-inventory-server/
 
 ```java
 //#if MC >= 12005
-// 新网络 API（CustomPacketPayload）
+// New Networking API（CustomPacketPayload）
 //#else
-//$$ // 旧网络 API（ResourceLocation + PacketByteBufs）
+//$$ // Old Networking API（ResourceLocation + PacketByteBufs）
 //#endif
 ```
 
 ## 许可证
 
-AGPL-3.0
+[AGPL-3.0](https://www.gnu.org/licenses/agpl-3.0.txt)
