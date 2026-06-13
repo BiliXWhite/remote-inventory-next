@@ -6,9 +6,11 @@ import com.mojang.brigadier.arguments.StringArgumentType;
 import com.mojang.brigadier.context.CommandContext;
 import dev.blinkwhite.remoteinventory.Reference;
 import dev.blinkwhite.remoteinventory.config.RemoteInvConfig;
+import dev.blinkwhite.remoteinventory.util.Translations;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
 import net.minecraft.network.chat.Component;
+import net.minecraft.server.level.ServerPlayer;
 
 import java.util.Set;
 
@@ -175,19 +177,21 @@ public class RemoteInvCommand {
     // ──────── helpers ────────
 
     private static void send(CommandContext<CommandSourceStack> ctx, String key, Object... args) {
-        Component msg = translatable(key, args);
+        String language = "en_us";
+        try {
+            ServerPlayer player = ctx.getSource().getPlayerOrException();
+            language = Translations.getPlayerLanguage(player);
+        } catch (Exception ignored) {}
+        String text = Translations.translate(language, key, args);
+        //#if MC >= 11900
+        Component msg = Component.literal(text);
+        //#else
+        //$$ Component msg = new net.minecraft.network.chat.TextComponent(text);
+        //#endif
         //#if MC >= 12000
         ctx.getSource().sendSuccess(() -> msg, false);
         //#else
         //$$ ctx.getSource().sendSuccess(msg, false);
-        //#endif
-    }
-
-    private static Component translatable(String key, Object... args) {
-        //#if MC >= 11900
-        return Component.translatable(key, args);
-        //#else
-        //$$ return new net.minecraft.network.chat.TranslatableComponent(key, args);
         //#endif
     }
 }

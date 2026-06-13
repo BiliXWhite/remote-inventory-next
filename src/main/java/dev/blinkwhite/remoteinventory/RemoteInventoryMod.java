@@ -3,6 +3,7 @@ package dev.blinkwhite.remoteinventory;
 import dev.blinkwhite.remoteinventory.command.RemoteInvCommand;
 import dev.blinkwhite.remoteinventory.config.RemoteInvConfig;
 import dev.blinkwhite.remoteinventory.network.NetworkHandler;
+import dev.blinkwhite.remoteinventory.util.Translations;
 import net.fabricmc.api.ModInitializer;
 //#if MC >= 11900
 import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
@@ -15,6 +16,7 @@ public class RemoteInventoryMod implements ModInitializer {
     public void onInitialize() {
         Reference.LOGGER.info("Initializing Remote Inventory Server...");
         RemoteInvConfig.load();
+        Translations.init();
         NetworkHandler.registerReceivers();
         //#if MC >= 11900
         CommandRegistrationCallback.EVENT.register(

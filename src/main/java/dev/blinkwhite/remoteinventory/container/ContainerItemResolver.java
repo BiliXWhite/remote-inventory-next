@@ -15,7 +15,9 @@ import net.minecraft.core.registries.BuiltInRegistries;
 
 public class ContainerItemResolver {
 
-    public static ResultType resolveItem(ServerPlayer player, BlockPos pos,
+    public record ResolveResult(ResultType type, int extractedCount) {}
+
+    public static ResolveResult resolveItem(ServerPlayer player, BlockPos pos,
                                           String itemIdStr, int slot) {
         Level level = getPlayerLevel(player);
 
@@ -23,43 +25,43 @@ public class ContainerItemResolver {
             double maxDist = RemoteInvConfig.getMaxInteractionDistance();
             double distance = player.distanceToSqr(pos.getX() + 0.5, pos.getY() + 0.5, pos.getZ() + 0.5);
             if (distance > maxDist * maxDist) {
-                return ResultType.PLAYER_TOO_FAR;
+                return new ResolveResult(ResultType.PLAYER_TOO_FAR, 0);
             }
         }
 
         if (!level.isLoaded(pos)) {
-            return ResultType.CONTAINER_NOT_LOADED;
+            return new ResolveResult(ResultType.CONTAINER_NOT_LOADED, 0);
         }
 
         BlockEntity blockEntity = level.getBlockEntity(pos);
         if (blockEntity == null) {
-            return ResultType.CONTAINER_NOT_FOUND;
+            return new ResolveResult(ResultType.CONTAINER_NOT_FOUND, 0);
         }
 
         if (!(blockEntity instanceof Container container)) {
-            return ResultType.NOT_A_CONTAINER;
+            return new ResolveResult(ResultType.NOT_A_CONTAINER, 0);
         }
 
         if (!isBlockAllowed(level, pos)) {
-            return ResultType.NOT_A_CONTAINER;
+            return new ResolveResult(ResultType.NOT_A_CONTAINER, 0);
         }
 
         if (slot < 0 || slot >= container.getContainerSize()) {
-            return ResultType.SLOT_EMPTY;
+            return new ResolveResult(ResultType.SLOT_EMPTY, 0);
         }
 
         ItemStack stackInSlot = container.getItem(slot);
         if (stackInSlot.isEmpty()) {
-            return ResultType.SLOT_EMPTY;
+            return new ResolveResult(ResultType.SLOT_EMPTY, 0);
         }
 
         Item requestedItem = resolveItemFromId(itemIdStr);
         if (requestedItem == null) {
-            return ResultType.ITEM_NOT_MATCH;
+            return new ResolveResult(ResultType.ITEM_NOT_MATCH, 0);
         }
 
         if (!stackInSlot.is(requestedItem)) {
-            return ResultType.ITEM_NOT_MATCH;
+            return new ResolveResult(ResultType.ITEM_NOT_MATCH, 0);
         }
 
         return giveToPlayer(player, container, slot, stackInSlot);
@@ -91,24 +93,51 @@ public class ContainerItemResolver {
         //#endif
     }
 
-    private static ResultType giveToPlayer(ServerPlayer player, Container container,
-                                            int slot, ItemStack stack) {
+    private static ResolveResult giveToPlayer(ServerPlayer player, Container container,
+                                                int slot, ItemStack stack) {
         try {
-            ItemStack extracted = container.removeItem(slot, stack.getCount());
+            int maxAddable = computeMaxAddable(player.getInventory(), stack);
+            if (maxAddable <= 0)
+                return new ResolveResult(ResultType.INVENTORY_FULL, 0);
 
-            if (extracted.isEmpty()) {
-                return ResultType.INTERNAL_ERROR;
-            }
+            int toExtract = Math.min(stack.getCount(), maxAddable);
+            ItemStack extracted = container.removeItem(slot, toExtract);
+            int initialCount = extracted.getCount();
+            if (initialCount <= 0)
+                return new ResolveResult(ResultType.INTERNAL_ERROR, 0);
 
-            if (!player.getInventory().add(extracted)) {
+            player.getInventory().add(extracted);
+            int actuallyAdded = initialCount - extracted.getCount();
+            if (!extracted.isEmpty())
                 player.drop(extracted, false);
-            }
 
-            return ResultType.SUCCESS;
+            container.setChanged();
+            ResultType type = toExtract < stack.getCount() ? ResultType.PARTIAL : ResultType.SUCCESS;
+            return new ResolveResult(type, actuallyAdded);
         } catch (Exception e) {
             Reference.LOGGER.error("Error giving item to player: {}", e.getMessage(), e);
-            return ResultType.INTERNAL_ERROR;
+            return new ResolveResult(ResultType.INTERNAL_ERROR, 0);
         }
+    }
+
+    private static int computeMaxAddable(net.minecraft.world.entity.player.Inventory inventory, ItemStack template) {
+        int maxStack = template.getMaxStackSize();
+        int canAdd = 0;
+        for (int i = 0; i < 36; i++) {
+            ItemStack existing = inventory.getItem(i);
+            if (existing.isEmpty()) {
+                canAdd += maxStack;
+            } else {
+                //#if MC >= 12005
+                if (ItemStack.isSameItemSameComponents(existing, template))
+                    canAdd += maxStack - existing.getCount();
+                //#else
+                //$$ if (ItemStack.isSameItem(existing, template))
+                //$$     canAdd += maxStack - existing.getCount();
+                //#endif
+            }
+        }
+        return canAdd;
     }
 
     public static java.util.List<ScanContainerResultPayload.SlotEntry> scanContainer(
