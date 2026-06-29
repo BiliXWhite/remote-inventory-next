@@ -46,6 +46,16 @@ jobs:
 
       - name: Publish to GitHub Packages
         run: ./gradlew publish --stacktrace
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_ACTOR: ${{ github.actor }}
+
+      - name: Verify env vars
+        if: failure()
+        run: |
+          echo "GITHUB_ACTOR=${{ github.actor }}"
+          echo "GITHUB_TOKEN length: ${#GITHUB_TOKEN}"
+          echo "GH_TOKEN length: ${#GH_TOKEN}"
 
       - name: Upload build artifacts
         uses: actions/upload-artifact@v6
