@@ -1,3 +1,5 @@
+import java.text.SimpleDateFormat
+
 final int mcVersion = project.mcVersion
 final boolean unobfuscated = mcVersion >= 26_00_00
 
@@ -44,8 +46,8 @@ def fullProjectVersion
 if (isRelease) {
     fullProjectVersion = modVersion
 } else if (isCi) {
-    def time = new java.text.SimpleDateFormat('yyMMdd').with {
-        it.timeZone = java.util.TimeZone.getTimeZone('GMT+08:00')
+    def time = new SimpleDateFormat('yyMMdd').with {
+        it.timeZone = TimeZone.getTimeZone('GMT+08:00')
         it.format(new Date())
     }
     def buildNumber = System.getenv('GITHUB_RUN_NUMBER')
@@ -130,7 +132,7 @@ tasks.withType(ProcessResources).configureEach {
 // Fabric Loader version enforcement
 // ============================================================================
 
-configurations.all {
+configurations.configureEach {
     resolutionStrategy {
         force "net.fabricmc:fabric-loader:${loaderVersion}"
     }
@@ -219,8 +221,8 @@ publishing {
     publications {
         mavenJava(MavenPublication) {
             from components.java
-            artifactId = "${modId}-${project.minecraft_version}"
-            version = modVersion
+            artifactId = "${modId}"
+            version = "${modVersion}+${project.minecraft_version}"
         }
     }
     repositories {
