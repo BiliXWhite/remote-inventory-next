@@ -14,6 +14,9 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      packages: write
     env:
       IS_THIS_RELEASE: true
     steps:
@@ -40,6 +43,9 @@ jobs:
           ./gradlew build --stacktrace
         env:
           BUILD_RELEASE: true
+
+      - name: Publish to GitHub Packages
+        run: ./gradlew publish --stacktrace
 
       - name: Upload build artifacts
         uses: actions/upload-artifact@v6
