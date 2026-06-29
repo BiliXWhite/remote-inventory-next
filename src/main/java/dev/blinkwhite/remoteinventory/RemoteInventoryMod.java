@@ -20,7 +20,7 @@ public class RemoteInventoryMod implements ModInitializer {
         NetworkHandler.registerReceivers();
         //#if MC >= 11900
         CommandRegistrationCallback.EVENT.register(
-            (dispatcher, registryAccess, environment) -> RemoteInvCommand.register(dispatcher)
+            (dispatcher, registryAccess, environment) -> RemoteInvCommand.register(dispatcher, registryAccess)
         );
         //#else
         //$$ CommandRegistrationCallback.EVENT.register(

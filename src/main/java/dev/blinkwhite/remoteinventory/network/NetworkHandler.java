@@ -1,9 +1,7 @@
 package dev.blinkwhite.remoteinventory.network;
 
 import dev.blinkwhite.remoteinventory.Reference;
-//#if MC >= 12005
 import dev.blinkwhite.remoteinventory.network.handler.RemoteExchangeHandler;
-//#endif
 import dev.blinkwhite.remoteinventory.network.handler.ScanContainerHandler;
 
 //#if MC >= 12005
@@ -30,9 +28,7 @@ public class NetworkHandler {
                 StreamCodec.ofMember(ScanContainerResultPayload::write, ScanContainerResultPayload::decode));
         //#endif
 
-        //#if MC >= 12005
         RemoteExchangeHandler.register();
-        //#endif
         ScanContainerHandler.register();
     }
 }

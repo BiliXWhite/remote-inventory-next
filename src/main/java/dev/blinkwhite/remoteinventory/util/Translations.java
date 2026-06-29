@@ -15,7 +15,7 @@ public class Translations {
     private static final Gson GSON = new Gson();
     private static final Map<String, Map<String, String>> TRANSLATIONS = new HashMap<>();
     private static final String[] LANGUAGES = {"en_us", "zh_cn", "zh_tw", "lzh"};
-    private static final String LANG_PATH = "/assets/remote-inventory-server/lang/%s.json";
+    private static final String LANG_PATH = "/assets/remote-inventory-next/lang/%s.json";
 
     private Translations() {}
 

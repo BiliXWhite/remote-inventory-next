@@ -2,23 +2,30 @@ package dev.blinkwhite.remoteinventory.command;
 
 import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.brigadier.arguments.DoubleArgumentType;
-import com.mojang.brigadier.arguments.StringArgumentType;
 import com.mojang.brigadier.context.CommandContext;
 import dev.blinkwhite.remoteinventory.Reference;
 import dev.blinkwhite.remoteinventory.config.RemoteInvConfig;
-import dev.blinkwhite.remoteinventory.util.Translations;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
 import net.minecraft.network.chat.Component;
-import net.minecraft.server.level.ServerPlayer;
 
 import java.util.Set;
 
 public class RemoteInvCommand {
 
-    private static final String PREFIX = "remote-inventory-server.command.";
+    private static final String PREFIX = Reference.MOD_ID + ".command.";
 
-    public static void register(CommandDispatcher<CommandSourceStack> dispatcher) {
+    //#if MC >= 11900
+    public static void register(CommandDispatcher<CommandSourceStack> dispatcher, net.minecraft.commands.CommandBuildContext registryAccess) {
+    //#else
+    //$$ public static void register(CommandDispatcher<CommandSourceStack> dispatcher) {
+    //#endif
+        //#if MC >= 11900
+        var blockArg = net.minecraft.commands.arguments.blocks.BlockStateArgument.block(registryAccess);
+        //#else
+        //$$ var blockArg = net.minecraft.commands.arguments.blocks.BlockStateArgument.block();
+        //#endif
+
         dispatcher.register(
             Commands.literal("remoteinv")
                 .then(Commands.literal("distance")
@@ -37,12 +44,12 @@ public class RemoteInvCommand {
                 )
                 .then(Commands.literal("whitelist")
                     .then(Commands.literal("add")
-                        .then(Commands.argument("block", StringArgumentType.word())
+                        .then(Commands.argument("block", blockArg)
                             .executes(RemoteInvCommand::whitelistAdd)
                         )
                     )
                     .then(Commands.literal("remove")
-                        .then(Commands.argument("block", StringArgumentType.word())
+                        .then(Commands.argument("block", blockArg)
                             .executes(RemoteInvCommand::whitelistRemove)
                         )
                     )
@@ -63,12 +70,12 @@ public class RemoteInvCommand {
                 )
                 .then(Commands.literal("blacklist")
                     .then(Commands.literal("add")
-                        .then(Commands.argument("block", StringArgumentType.word())
+                        .then(Commands.argument("block", blockArg)
                             .executes(RemoteInvCommand::blacklistAdd)
                         )
                     )
                     .then(Commands.literal("remove")
-                        .then(Commands.argument("block", StringArgumentType.word())
+                        .then(Commands.argument("block", blockArg)
                             .executes(RemoteInvCommand::blacklistRemove)
                         )
                     )
@@ -90,28 +97,28 @@ public class RemoteInvCommand {
     private static int setDistance(CommandContext<CommandSourceStack> ctx) {
         double value = DoubleArgumentType.getDouble(ctx, "value");
         RemoteInvConfig.setMaxInteractionDistance(value);
-        send(ctx, PREFIX + "distance.set", value);
+        send(ctx, PREFIX + "distance.set", String.format("%.1f", value));
         return 1;
     }
 
     private static int getDistance(CommandContext<CommandSourceStack> ctx) {
-        send(ctx, PREFIX + "distance.get", RemoteInvConfig.getMaxInteractionDistance());
+        send(ctx, PREFIX + "distance.get", String.format("%.1f", RemoteInvConfig.getMaxInteractionDistance()));
         return 1;
     }
 
     // ──────── whitelist ────────
 
     private static int whitelistAdd(CommandContext<CommandSourceStack> ctx) {
-        String id = StringArgumentType.getString(ctx, "block");
-        RemoteInvConfig.addToWhitelist(id);
-        send(ctx, PREFIX + "whitelist.add", id);
+        String blockId = getBlockId(ctx);
+        RemoteInvConfig.addToWhitelist(blockId);
+        send(ctx, PREFIX + "whitelist.add", blockId);
         return 1;
     }
 
     private static int whitelistRemove(CommandContext<CommandSourceStack> ctx) {
-        String id = StringArgumentType.getString(ctx, "block");
-        RemoteInvConfig.removeFromWhitelist(id);
-        send(ctx, PREFIX + "whitelist.remove", id);
+        String blockId = getBlockId(ctx);
+        RemoteInvConfig.removeFromWhitelist(blockId);
+        send(ctx, PREFIX + "whitelist.remove", blockId);
         return 1;
     }
 
@@ -134,16 +141,16 @@ public class RemoteInvCommand {
     // ──────── blacklist ────────
 
     private static int blacklistAdd(CommandContext<CommandSourceStack> ctx) {
-        String id = StringArgumentType.getString(ctx, "block");
-        RemoteInvConfig.addToBlacklist(id);
-        send(ctx, PREFIX + "blacklist.add", id);
+        String blockId = getBlockId(ctx);
+        RemoteInvConfig.addToBlacklist(blockId);
+        send(ctx, PREFIX + "blacklist.add", blockId);
         return 1;
     }
 
     private static int blacklistRemove(CommandContext<CommandSourceStack> ctx) {
-        String id = StringArgumentType.getString(ctx, "block");
-        RemoteInvConfig.removeFromBlacklist(id);
-        send(ctx, PREFIX + "blacklist.remove", id);
+        String blockId = getBlockId(ctx);
+        RemoteInvConfig.removeFromBlacklist(blockId);
+        send(ctx, PREFIX + "blacklist.remove", blockId);
         return 1;
     }
 
@@ -166,7 +173,7 @@ public class RemoteInvCommand {
     // ──────── config ────────
 
     private static int showConfig(CommandContext<CommandSourceStack> ctx) {
-        send(ctx, PREFIX + "config.distance", RemoteInvConfig.getMaxInteractionDistance());
+        send(ctx, PREFIX + "config.distance", String.format("%.1f", RemoteInvConfig.getMaxInteractionDistance()));
         send(ctx, PREFIX + "config.distance_enabled", RemoteInvConfig.isDistanceLimitEnabled());
         send(ctx, PREFIX + "config.whitelist_enabled", RemoteInvConfig.isWhitelistEnabled());
         send(ctx, PREFIX + "config.whitelist", RemoteInvConfig.getWhitelist().toString());
@@ -176,17 +183,21 @@ public class RemoteInvCommand {
 
     // ──────── helpers ────────
 
-    private static void send(CommandContext<CommandSourceStack> ctx, String key, Object... args) {
-        String language = "en_us";
-        try {
-            ServerPlayer player = ctx.getSource().getPlayerOrException();
-            language = Translations.getPlayerLanguage(player);
-        } catch (Exception ignored) {}
-        String text = Translations.translate(language, key, args);
+    private static String getBlockId(CommandContext<CommandSourceStack> ctx) {
+        var input = net.minecraft.commands.arguments.blocks.BlockStateArgument.getBlock(ctx, "block");
+        var block = input.getState().getBlock();
         //#if MC >= 11900
-        Component msg = Component.literal(text);
+        return net.minecraft.core.registries.BuiltInRegistries.BLOCK.getKey(block).toString();
         //#else
-        //$$ Component msg = new net.minecraft.network.chat.TextComponent(text);
+        //$$ return net.minecraft.core.Registry.BLOCK.getKey(block).toString();
+        //#endif
+    }
+
+    private static void send(CommandContext<CommandSourceStack> ctx, String key, Object... args) {
+        //#if MC >= 11900
+        Component msg = Component.translatable(key, args);
+        //#else
+        //$$ Component msg = new net.minecraft.network.chat.TranslatableComponent(key, args);
         //#endif
         //#if MC >= 12000
         ctx.getSource().sendSuccess(() -> msg, false);

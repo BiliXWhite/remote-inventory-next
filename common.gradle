@@ -228,7 +228,7 @@ publishing {
         if (System.getenv('GITHUB_ACTIONS') == 'true') {
             maven {
                 name = 'GitHubPackages'
-                url = 'https://maven.pkg.github.com/BiliXWhite/remote-inventory-server'
+                url = 'https://maven.pkg.github.com/BiliXWhite/remote-inventory-next'
                 credentials {
                     username = System.getenv('GITHUB_ACTOR')
                     password = System.getenv('GITHUB_TOKEN')

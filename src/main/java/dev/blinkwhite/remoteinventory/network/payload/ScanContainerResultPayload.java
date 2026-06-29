@@ -1,38 +1,32 @@
 package dev.blinkwhite.remoteinventory.network.payload;
 
-//#if MC >= 12005
 import dev.blinkwhite.remoteinventory.Reference;
 import io.netty.buffer.ByteBuf;
+import lombok.NonNull;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.FriendlyByteBuf;
+import net.minecraft.network.codec.StreamCodec;
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
 
 import java.util.ArrayList;
 import java.util.List;
 
-public class ScanContainerResultPayload implements CustomPacketPayload {
-    public static final CustomPacketPayload.Type<ScanContainerResultPayload> TYPE = new CustomPacketPayload.Type<>(
-        //#if MC >= 12105
-        net.minecraft.resources.Identifier.fromNamespaceAndPath(Reference.MOD_ID, "scan_container_result")
-        //#elseif MC >= 12101
-        //$$ net.minecraft.resources.ResourceLocation.fromNamespaceAndPath(Reference.MOD_ID, "scan_container_result")
-        //#else
-        //$$ new net.minecraft.resources.ResourceLocation(Reference.MOD_ID, "scan_container_result")
-        //#endif
+public record ScanContainerResultPayload(BlockPos pos, List<SlotEntry> entries) implements CustomPacketPayload {
+    public static final Type<ScanContainerResultPayload> TYPE = new Type<>(
+            //#if MC >= 12105
+            net.minecraft.resources.Identifier.fromNamespaceAndPath(Reference.MOD_ID, "scan_container_result")
+            //#elseif MC >= 12101
+            //$$ net.minecraft.resources.ResourceLocation.fromNamespaceAndPath(Reference.MOD_ID, "scan_container_result")
+            //#else
+            //$$ new net.minecraft.resources.ResourceLocation(Reference.MOD_ID, "scan_container_result")
+            //#endif
     );
 
-    public record SlotEntry(int slot, String itemId, int count) {}
+    public static final StreamCodec<ByteBuf, ScanContainerResultPayload> CODEC =
+            StreamCodec.ofMember(ScanContainerResultPayload::write, ScanContainerResultPayload::decode);
 
-    private final BlockPos pos;
-    private final List<SlotEntry> entries;
-
-    public ScanContainerResultPayload(BlockPos pos, List<SlotEntry> entries) {
-        this.pos = pos;
-        this.entries = entries;
+    public record SlotEntry(int slot, String itemId, int count) {
     }
-
-    public BlockPos getPos() { return pos; }
-    public List<SlotEntry> getEntries() { return entries; }
 
     public static ScanContainerResultPayload decode(ByteBuf buf) {
         FriendlyByteBuf wrapped = (FriendlyByteBuf) buf;
@@ -70,27 +64,7 @@ public class ScanContainerResultPayload implements CustomPacketPayload {
     }
 
     @Override
-    public CustomPacketPayload.Type<? extends CustomPacketPayload> type() {
+    public @NonNull Type<? extends CustomPacketPayload> type() {
         return TYPE;
     }
 }
-//#else
-//$$ import net.minecraft.core.BlockPos;
-//$$
-//$$ import java.util.List;
-//$$
-//$$ public class ScanContainerResultPayload {
-//$$     public record SlotEntry(int slot, String itemId, int count) {}
-//$$
-//$$     private final BlockPos pos;
-//$$     private final List<SlotEntry> entries;
-//$$
-//$$     public ScanContainerResultPayload(BlockPos pos, List<SlotEntry> entries) {
-//$$         this.pos = pos;
-//$$         this.entries = entries;
-//$$     }
-//$$
-//$$     public BlockPos getPos() { return pos; }
-//$$     public List<SlotEntry> getEntries() { return entries; }
-//$$ }
-//#endif

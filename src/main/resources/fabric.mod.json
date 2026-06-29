@@ -16,6 +16,9 @@
   "entrypoints": {
     "main": [
       "dev.blinkwhite.remoteinventory.RemoteInventoryMod"
+    ],
+    "client": [
+      "dev.blinkwhite.remoteinventory.client.ClientRemoteInventoryMod"
     ]
   },
   "depends": {

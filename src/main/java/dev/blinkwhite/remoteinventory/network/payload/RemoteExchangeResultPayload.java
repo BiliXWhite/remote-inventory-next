@@ -1,8 +1,9 @@
-//#if MC >= 12005
 package dev.blinkwhite.remoteinventory.network.payload;
 
+import dev.blinkwhite.remoteinventory.Reference;
 import dev.blinkwhite.remoteinventory.enums.ResultType;
 import io.netty.buffer.ByteBuf;
+import lombok.NonNull;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.network.codec.StreamCodec;
@@ -12,27 +13,22 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
-public class RemoteExchangeResultPayload implements CustomPacketPayload {
-    public static final CustomPacketPayload.Type<RemoteExchangeResultPayload> TYPE =
-            new CustomPacketPayload.Type<>(
+public record RemoteExchangeResultPayload(BlockPos pos, ResultType takeResult, int takenCount, int returnedCount,
+                                          List<SlotSnapshot> inventoryDelta) implements CustomPacketPayload {
+    public static final Type<RemoteExchangeResultPayload> TYPE =
+            new Type<>(
                     //#if MC >= 12101
-                    net.minecraft.resources.Identifier.fromNamespaceAndPath("remote-inventory-server", "exchange_result")
+                    net.minecraft.resources.Identifier.fromNamespaceAndPath(Reference.MOD_ID, "exchange_result")
                     //#else
-                    //$$ new net.minecraft.resources.ResourceLocation("remote-inventory-server", "exchange_result")
+                    //$$ new net.minecraft.resources.ResourceLocation(Reference.MOD_ID, "exchange_result")
                     //#endif
             );
 
     public static final StreamCodec<ByteBuf, RemoteExchangeResultPayload> CODEC =
             StreamCodec.ofMember(RemoteExchangeResultPayload::write, RemoteExchangeResultPayload::decode);
 
-    // exchange 后背包变动 slot 的快照：slotIndex 是 0-35 主背包格，itemId 空则此格为空
-    public record SlotSnapshot(int slotIndex, String itemId, int count) {}
-
-    private final BlockPos pos;
-    private final ResultType takeResult;
-    private final int takenCount;
-    private final int returnedCount;
-    private final List<SlotSnapshot> inventoryDelta;
+    public record SlotSnapshot(int slotIndex, String itemId, int count) {
+    }
 
     public RemoteExchangeResultPayload(BlockPos pos, ResultType takeResult,
                                        int takenCount, int returnedCount,
@@ -43,12 +39,6 @@ public class RemoteExchangeResultPayload implements CustomPacketPayload {
         this.returnedCount = returnedCount;
         this.inventoryDelta = inventoryDelta != null ? inventoryDelta : Collections.emptyList();
     }
-
-    public BlockPos getPos() { return pos; }
-    public ResultType getTakeResult() { return takeResult; }
-    public int getTakenCount() { return takenCount; }
-    public int getReturnedCount() { return returnedCount; }
-    public List<SlotSnapshot> getInventoryDelta() { return inventoryDelta; }
 
     public static RemoteExchangeResultPayload decode(ByteBuf buf) {
         FriendlyByteBuf wrapped = (FriendlyByteBuf) buf;
@@ -81,9 +71,8 @@ public class RemoteExchangeResultPayload implements CustomPacketPayload {
         }
     }
 
-    @Override public CustomPacketPayload.Type<? extends CustomPacketPayload> type() { return TYPE; }
+    @Override
+    public @NonNull Type<? extends CustomPacketPayload> type() {
+        return TYPE;
+    }
 }
-//#else
-//$$ package dev.blinkwhite.remoteinventory.network.payload;
-//$$ public class RemoteExchangeResultPayload {}
-//#endif

@@ -5,20 +5,24 @@ import dev.blinkwhite.remoteinventory.config.RemoteInvConfig;
 import dev.blinkwhite.remoteinventory.enums.ResultType;
 import dev.blinkwhite.remoteinventory.network.payload.ScanContainerResultPayload;
 import net.minecraft.core.BlockPos;
+//#if MC >= 11903
+import net.minecraft.core.registries.BuiltInRegistries;
+//#else
+//$$ import net.minecraft.core.Registry;
+//#endif
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.Container;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.entity.BlockEntity;
-import net.minecraft.core.registries.BuiltInRegistries;
 
 public class ContainerItemResolver {
 
     public record ResolveResult(ResultType type, int extractedCount) {}
 
     public static ResolveResult resolveItem(ServerPlayer player, BlockPos pos,
-                                          String itemIdStr, int slot) {
+                                            String itemIdStr, int slot) {
         Level level = getPlayerLevel(player);
 
         if (RemoteInvConfig.isDistanceLimitEnabled()) {
@@ -70,19 +74,25 @@ public class ContainerItemResolver {
     private static Item resolveItemFromId(String itemIdStr) {
         //#if MC >= 12105
         net.minecraft.resources.Identifier id = net.minecraft.resources.Identifier.parse(itemIdStr);
-        return BuiltInRegistries.ITEM.getOptional(id).orElse(null);
         //#elseif MC >= 12101
         //$$ net.minecraft.resources.ResourceLocation id = net.minecraft.resources.ResourceLocation.parse(itemIdStr);
-        //$$ return BuiltInRegistries.ITEM.getOptional(id).orElse(null);
         //#else
         //$$ net.minecraft.resources.ResourceLocation id = new net.minecraft.resources.ResourceLocation(itemIdStr);
-        //$$ return BuiltInRegistries.ITEM.getOptional(id).orElse(null);
+        //#endif
+        //#if MC >= 11903
+        return BuiltInRegistries.ITEM.getOptional(id).orElse(null);
+        //#else
+        //$$ return Registry.ITEM.getOptional(id).orElse(null);
         //#endif
     }
 
     private static boolean isBlockAllowed(Level level, BlockPos pos) {
-        return RemoteInvConfig.isBlockAllowed(
-                BuiltInRegistries.BLOCK.getKey(level.getBlockState(pos).getBlock()).toString());
+        //#if MC >= 11903
+        String blockId = BuiltInRegistries.BLOCK.getKey(level.getBlockState(pos).getBlock()).toString();
+        //#else
+        //$$ String blockId = net.minecraft.core.Registry.BLOCK.getKey(level.getBlockState(pos).getBlock()).toString();
+        //#endif
+        return RemoteInvConfig.isBlockAllowed(blockId);
     }
 
     private static Level getPlayerLevel(ServerPlayer player) {
@@ -168,7 +178,11 @@ public class ContainerItemResolver {
         for (int i = 0; i < container.getContainerSize(); i++) {
             ItemStack stack = container.getItem(i);
             if (!stack.isEmpty()) {
+                //#if MC >= 11903
                 String itemId = BuiltInRegistries.ITEM.getKey(stack.getItem()).toString();
+                //#else
+                //$$ String itemId = net.minecraft.core.Registry.ITEM.getKey(stack.getItem()).toString();
+                //#endif
                 entries.add(new ScanContainerResultPayload.SlotEntry(i, itemId, stack.getCount()));
             }
         }

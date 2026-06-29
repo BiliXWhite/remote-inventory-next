@@ -44,7 +44,7 @@ remote-inventory-server/
 | Network registration | `network/NetworkHandler.java` | PayloadTypeRegistry + all handler registration |
 | Result enums | `enums/ResultType.java` | SUCCESS, PLAYER_TOO_FAR, CONTAINER_NOT_FOUND, etc. |
 | Constants | `Reference.java` | MOD_ID, MOD_NAME, LOGGER, MAX_CONTAINER_INTERACTION_DISTANCE |
-| Language files | `src/main/resources/assets/remote-inventory-server/lang/` | en_us, zh_cn, zh_tw, lzh (yamlang-managed) |
+| Language files | `src/main/resources/assets/remote-inventory-next/lang/` | en_us, zh_cn, zh_tw, lzh (yamlang-managed) |
 | Build — shared script | `common.gradle` | Groovy DSL; handles Java version, Lombok, Loom, publishing, license, yamlang |
 | Build — root config | `build.gradle.kts` | Preprocessor nodes & links, buildAndGather task |
 | Build — version list | `settings.json` | JSON array of all MC version directories |

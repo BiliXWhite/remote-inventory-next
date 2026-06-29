@@ -32,16 +32,16 @@ public class ScanContainerHandler {
         server.execute(() -> {
             try {
                 List<ScanContainerResultPayload.SlotEntry> entries =
-                        ContainerItemResolver.scanContainer(player, payload.getPos());
+                        ContainerItemResolver.scanContainer(player, payload.pos());
                 ServerPlayNetworking.send(player,
-                        new ScanContainerResultPayload(payload.getPos(), entries));
+                        new ScanContainerResultPayload(payload.pos(), entries));
             } catch (Exception e) {
                 Reference.LOGGER.error(
                     "Error scanning container at {} for {}: {}",
-                    payload.getPos(), player.getName().getString(), e.getMessage(), e
+                    payload.pos(), player.getName().getString(), e.getMessage(), e
                 );
                 ServerPlayNetworking.send(player,
-                        new ScanContainerResultPayload(payload.getPos(), List.of()));
+                        new ScanContainerResultPayload(payload.pos(), List.of()));
             }
         });
     }

@@ -1,19 +1,22 @@
-//#if MC >= 12005
 package dev.blinkwhite.remoteinventory.network.payload;
 
+import dev.blinkwhite.remoteinventory.Reference;
 import io.netty.buffer.ByteBuf;
+import lombok.Getter;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.network.codec.StreamCodec;
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
+import lombok.NonNull;
 
+@Getter
 public class RemoteExchangePayload implements CustomPacketPayload {
     public static final CustomPacketPayload.Type<RemoteExchangePayload> TYPE =
             new CustomPacketPayload.Type<>(
                     //#if MC >= 12101
-                    net.minecraft.resources.Identifier.fromNamespaceAndPath("remote-inventory-server", "exchange")
+                    net.minecraft.resources.Identifier.fromNamespaceAndPath(Reference.MOD_ID, "exchange")
                     //#else
-                    //$$ new net.minecraft.resources.ResourceLocation("remote-inventory-server", "exchange")
+                    //$$ new net.minecraft.resources.ResourceLocation(Reference.MOD_ID, "exchange")
                     //#endif
             );
 
@@ -37,13 +40,6 @@ public class RemoteExchangePayload implements CustomPacketPayload {
         this.returnCount = returnCount;
     }
 
-    public BlockPos getTakePos() { return takePos; }
-    public String getTakeItemId() { return takeItemId; }
-    public int getTakeSlot() { return takeSlot; }
-    public BlockPos getReturnPos() { return returnPos; }
-    public String getReturnItemId() { return returnItemId; }
-    public int getReturnCount() { return returnCount; }
-
     public static RemoteExchangePayload decode(ByteBuf buf) {
         FriendlyByteBuf wrapped = (FriendlyByteBuf) buf;
         return new RemoteExchangePayload(
@@ -62,9 +58,5 @@ public class RemoteExchangePayload implements CustomPacketPayload {
     }
 
     @Override
-    public CustomPacketPayload.Type<? extends CustomPacketPayload> type() { return TYPE; }
+    public @NonNull Type<? extends CustomPacketPayload> type() { return TYPE; }
 }
-//#else
-//$$ package dev.blinkwhite.remoteinventory.network.payload;
-//$$ public class RemoteExchangePayload {}
-//#endif
