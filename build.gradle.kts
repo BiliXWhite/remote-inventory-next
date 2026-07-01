@@ -1,7 +1,7 @@
 plugins {
     id("maven-publish")
-    id("net.fabricmc.fabric-loom") version "1.16-SNAPSHOT" apply false
-    id("net.fabricmc.fabric-loom-remap") version "1.16-SNAPSHOT" apply false
+    id("net.fabricmc.fabric-loom") version "1.17-SNAPSHOT" apply false
+    id("net.fabricmc.fabric-loom-remap") version "1.17-SNAPSHOT" apply false
 
     // https://github.com/ReplayMod/preprocessor
     // https://github.com/Fallen-Breath/preprocessor
@@ -46,34 +46,10 @@ preprocess {
     mc12111 .link(mc260102, file("versions/mapping-1.21.11-26.1.2.txt"))
     mc260102.link(mc260200, file("versions/mapping-26.1.2-26.2.txt"))
 
-    // Propagate mcVersion to subproject ext (template pattern)
+    // See https://github.com/Fallen-Breath/fabric-mod-template/blob/1d72d77a1c5ce0bf060c2501270298a12adab679/build.gradle#L55-L63
     for (node in getNodes()) {
-        val projectName: String = node.project
-        findProject(projectName)?.extra?.set("mcVersion", node.mcVersion)
-    }
-}
-
-// ============================================================================
-// buildAndGather - collects all version JARs into root build/libs/ (template pattern)
-// ============================================================================
-
-tasks.register("buildAndGather") {
-    subprojects {
-        dependsOn(tasks.named("build"))
-    }
-    doFirst {
-        println("Gathering builds")
-        val buildLibs = { p: Project -> p.layout.buildDirectory.dir("libs").get().asFile.toPath() }
-        delete(fileTree(buildLibs(rootProject)) { include("*") })
-        subprojects {
-            copy {
-                from(buildLibs(project)) {
-                    include("*.jar")
-                    exclude("*-dev.jar", "*-sources.jar", "*-shadow.jar")
-                }
-                into(buildLibs(rootProject))
-                duplicatesStrategy = DuplicatesStrategy.INCLUDE
-            }
-        }
+        findProject(node.project)
+            ?.ext
+            ?.set("mcVersion", node.mcVersion)
     }
 }

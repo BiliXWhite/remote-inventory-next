@@ -7,16 +7,18 @@ import net.minecraft.resources.ResourceLocation;
 import java.util.ArrayList;
 import java.util.List;
 
-public record ScanContainerResultPayload(BlockPos pos, List<SlotEntry> entries) {
+public record ScanContainerResultPayload(String dimension, BlockPos pos, List<SlotEntry> entries) {
     public record SlotEntry(int slot, String itemId, int count) {
     }
 
-    public ScanContainerResultPayload(BlockPos pos, List<SlotEntry> entries) {
+    public ScanContainerResultPayload(String dimension, BlockPos pos, List<SlotEntry> entries) {
+        this.dimension = dimension;
         this.pos = pos;
         this.entries = entries != null ? entries : List.of();
     }
 
     public static ScanContainerResultPayload decode(FriendlyByteBuf buf) {
+        String dimension = buf.readUtf();
         BlockPos pos = buf.readBlockPos();
         int size = buf.readVarInt();
         List<SlotEntry> entries = new ArrayList<>(size);
@@ -26,10 +28,11 @@ public record ScanContainerResultPayload(BlockPos pos, List<SlotEntry> entries) 
             int count = buf.readVarInt();
             entries.add(new SlotEntry(slot, itemId, count));
         }
-        return new ScanContainerResultPayload(pos, entries);
+        return new ScanContainerResultPayload(dimension, pos, entries);
     }
 
     public void write(FriendlyByteBuf buf) {
+        buf.writeUtf(dimension);
         buf.writeBlockPos(pos);
         buf.writeVarInt(entries.size());
         for (SlotEntry e : entries) {

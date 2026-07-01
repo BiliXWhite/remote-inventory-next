@@ -11,7 +11,7 @@ import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
 import java.util.ArrayList;
 import java.util.List;
 
-public record ScanContainerResultPayload(BlockPos pos, List<SlotEntry> entries) implements CustomPacketPayload {
+public record ScanContainerResultPayload(String dimension, BlockPos pos, List<SlotEntry> entries) implements CustomPacketPayload {
     public static final Type<ScanContainerResultPayload> TYPE = new Type<>(
             //#if MC >= 12105
             net.minecraft.resources.Identifier.fromNamespaceAndPath(Reference.MOD_ID, "scan_container_result")
@@ -30,6 +30,7 @@ public record ScanContainerResultPayload(BlockPos pos, List<SlotEntry> entries) 
 
     public static ScanContainerResultPayload decode(ByteBuf buf) {
         FriendlyByteBuf wrapped = (FriendlyByteBuf) buf;
+        String dimension = wrapped.readUtf();
         BlockPos pos = wrapped.readBlockPos();
         int size = wrapped.readVarInt();
         List<SlotEntry> entries = new ArrayList<>(size);
@@ -43,11 +44,12 @@ public record ScanContainerResultPayload(BlockPos pos, List<SlotEntry> entries) 
             int count = wrapped.readVarInt();
             entries.add(new SlotEntry(slot, itemId, count));
         }
-        return new ScanContainerResultPayload(pos, entries);
+        return new ScanContainerResultPayload(dimension, pos, entries);
     }
 
     public void write(ByteBuf buf) {
         FriendlyByteBuf wrapped = (FriendlyByteBuf) buf;
+        wrapped.writeUtf(dimension);
         wrapped.writeBlockPos(pos);
         wrapped.writeVarInt(entries.size());
         for (SlotEntry e : entries) {

@@ -13,18 +13,43 @@ public class ContainerItemCache {
     public static final ContainerItemCache INSTANCE = new ContainerItemCache();
     private static final long CACHE_TTL_MS = 30_000;
 
-    private final Map<String, List<SlotRef>> itemIndex = new ConcurrentHashMap<>();
-    private final Map<BlockPos, ContainerSnapshot> containerIndex = new ConcurrentHashMap<>();
+    private final Map<String, DimensionCache> dimensionCaches = new ConcurrentHashMap<>();
 
-    public record SlotRef(BlockPos pos, int slot) {}
+    public record SlotRef(String dimension, BlockPos pos, int slot) {}
     public record ContainerSnapshot(List<ScanContainerResultPayload.SlotEntry> entries, long timestamp) {}
+    public record DimensionKey(String dimension, BlockPos pos) {}
+
+    private static class DimensionCache {
+        final Map<String, List<SlotRef>> itemIndex = new ConcurrentHashMap<>();
+        final Map<BlockPos, ContainerSnapshot> containerIndex = new ConcurrentHashMap<>();
+    }
 
     private ContainerItemCache() {}
 
     private static long now() { return System.currentTimeMillis(); }
 
+    private DimensionCache getOrCreateCache(String dimension) {
+        return dimensionCaches.computeIfAbsent(dimension, k -> new DimensionCache());
+    }
+
     public SlotRef findItem(String itemId) {
-        List<SlotRef> refs = itemIndex.get(itemId);
+        for (var dimEntry : dimensionCaches.entrySet()) {
+            String dimension = dimEntry.getKey();
+            DimensionCache cache = dimEntry.getValue();
+            List<SlotRef> refs = cache.itemIndex.get(itemId);
+            if (refs == null || refs.isEmpty()) continue;
+            synchronized (refs) {
+                if (refs.isEmpty()) continue;
+                return refs.remove(0);
+            }
+        }
+        return null;
+    }
+
+    public SlotRef findItem(String itemId, String dimension) {
+        DimensionCache cache = dimensionCaches.get(dimension);
+        if (cache == null) return null;
+        List<SlotRef> refs = cache.itemIndex.get(itemId);
         if (refs == null || refs.isEmpty()) return null;
         synchronized (refs) {
             if (refs.isEmpty()) return null;
@@ -32,56 +57,81 @@ public class ContainerItemCache {
         }
     }
 
-    public void updateContainer(BlockPos pos, List<ScanContainerResultPayload.SlotEntry> entries) {
-        ContainerSnapshot old = containerIndex.remove(pos);
+    public void updateContainer(String dimension, BlockPos pos, List<ScanContainerResultPayload.SlotEntry> entries) {
+        DimensionCache cache = getOrCreateCache(dimension);
+        ContainerSnapshot old = cache.containerIndex.remove(pos);
         if (old != null) {
             for (ScanContainerResultPayload.SlotEntry e : old.entries())
-                removeSlotRef(e.itemId(), pos, e.slot());
+                removeSlotRef(cache, e.itemId(), dimension, pos, e.slot());
         }
         if (entries.isEmpty()) {
-            containerIndex.put(pos, new ContainerSnapshot(List.of(), now()));
+            cache.containerIndex.put(pos, new ContainerSnapshot(List.of(), now()));
             return;
         }
-        containerIndex.put(pos, new ContainerSnapshot(List.copyOf(entries), now()));
+        cache.containerIndex.put(pos, new ContainerSnapshot(List.copyOf(entries), now()));
         for (ScanContainerResultPayload.SlotEntry e : entries)
-            itemIndex.computeIfAbsent(e.itemId(),
+            cache.itemIndex.computeIfAbsent(e.itemId(),
                     k -> Collections.synchronizedList(new ArrayList<>()))
-                    .add(new SlotRef(pos, e.slot()));
+                    .add(new SlotRef(dimension, pos, e.slot()));
     }
 
-    public void invalidate(BlockPos pos) {
-        ContainerSnapshot old = containerIndex.remove(pos);
+    public void invalidate(String dimension, BlockPos pos) {
+        DimensionCache cache = dimensionCaches.get(dimension);
+        if (cache == null) return;
+        ContainerSnapshot old = cache.containerIndex.remove(pos);
         if (old != null)
             for (ScanContainerResultPayload.SlotEntry e : old.entries())
-                removeSlotRef(e.itemId(), pos, e.slot());
+                removeSlotRef(cache, e.itemId(), dimension, pos, e.slot());
     }
 
-    public boolean isCached(BlockPos pos) {
-        ContainerSnapshot snap = containerIndex.get(pos);
+    public void invalidateDimension(String dimension) {
+        dimensionCaches.remove(dimension);
+    }
+
+    public boolean isCached(String dimension, BlockPos pos) {
+        DimensionCache cache = dimensionCaches.get(dimension);
+        if (cache == null) return false;
+        ContainerSnapshot snap = cache.containerIndex.get(pos);
         return snap != null && (now() - snap.timestamp()) < CACHE_TTL_MS;
     }
 
-    public void invalidateOldest() {
+    public void invalidateOldest(String dimension) {
+        DimensionCache cache = dimensionCaches.get(dimension);
+        if (cache == null) return;
         BlockPos oldest = null;
         long oldestTime = Long.MAX_VALUE;
-        for (var e : containerIndex.entrySet()) {
+        for (var e : cache.containerIndex.entrySet()) {
             if (e.getValue().timestamp() < oldestTime) {
                 oldestTime = e.getValue().timestamp();
                 oldest = e.getKey();
             }
         }
-        if (oldest != null) invalidate(oldest);
+        if (oldest != null) invalidate(dimension, oldest);
     }
 
-    public int getContainerCount() { return containerIndex.size(); }
+    public int getContainerCount(String dimension) {
+        DimensionCache cache = dimensionCaches.get(dimension);
+        return cache == null ? 0 : cache.containerIndex.size();
+    }
+
+    public int getTotalContainerCount() {
+        return dimensionCaches.values().stream()
+                .mapToInt(c -> c.containerIndex.size())
+                .sum();
+    }
 
     public void clear() {
-        itemIndex.clear();
-        containerIndex.clear();
+        dimensionCaches.clear();
     }
 
-    public void recordTake(BlockPos pos, int slot, int takenCount) {
-        ContainerSnapshot snapshot = containerIndex.get(pos);
+    public void clearDimension(String dimension) {
+        dimensionCaches.remove(dimension);
+    }
+
+    public void recordTake(String dimension, BlockPos pos, int slot, int takenCount) {
+        DimensionCache cache = dimensionCaches.get(dimension);
+        if (cache == null) return;
+        ContainerSnapshot snapshot = cache.containerIndex.get(pos);
         if (snapshot == null) return;
 
         List<ScanContainerResultPayload.SlotEntry> updated = new ArrayList<>();
@@ -96,19 +146,21 @@ public class ContainerItemCache {
                 updated.add(e);
             }
         }
-        containerIndex.put(pos, new ContainerSnapshot(updated, now()));
+        cache.containerIndex.put(pos, new ContainerSnapshot(updated, now()));
         if (itemId != null) {
-            removeSlotRef(itemId, pos, slot);
+            removeSlotRef(cache, itemId, dimension, pos, slot);
             if (takenCount < getOriginalCount(snapshot, slot))
-                itemIndex.computeIfAbsent(itemId,
+                cache.itemIndex.computeIfAbsent(itemId,
                         k -> Collections.synchronizedList(new ArrayList<>()))
-                        .add(new SlotRef(pos, slot));
+                        .add(new SlotRef(dimension, pos, slot));
         }
     }
 
-    public void recordReturn(BlockPos pos, String itemId, int returnedCount) {
-        ContainerSnapshot snapshot = containerIndex.get(pos);
-        if (snapshot == null) { invalidate(pos); return; }
+    public void recordReturn(String dimension, BlockPos pos, String itemId, int returnedCount) {
+        DimensionCache cache = dimensionCaches.get(dimension);
+        if (cache == null) { invalidate(dimension, pos); return; }
+        ContainerSnapshot snapshot = cache.containerIndex.get(pos);
+        if (snapshot == null) { invalidate(dimension, pos); return; }
 
         List<ScanContainerResultPayload.SlotEntry> updated = new ArrayList<>(snapshot.entries());
         boolean merged = false;
@@ -120,12 +172,12 @@ public class ContainerItemCache {
                 break;
             }
         }
-        if (!merged) { invalidate(pos); return; }
+        if (!merged) { invalidate(dimension, pos); return; }
 
-        containerIndex.put(pos, new ContainerSnapshot(updated, now()));
-        itemIndex.computeIfAbsent(itemId,
+        cache.containerIndex.put(pos, new ContainerSnapshot(updated, now()));
+        cache.itemIndex.computeIfAbsent(itemId,
                 k -> Collections.synchronizedList(new ArrayList<>()))
-                .add(new SlotRef(pos, findSlot(updated, itemId)));
+                .add(new SlotRef(dimension, pos, findSlot(updated, itemId)));
     }
 
     private static int getOriginalCount(ContainerSnapshot snap, int slot) {
@@ -140,35 +192,40 @@ public class ContainerItemCache {
         return -1;
     }
 
-    private void removeSlotRef(String itemId, BlockPos pos, int slot) {
-        List<SlotRef> refs = itemIndex.get(itemId);
+    private void removeSlotRef(DimensionCache cache, String itemId, String dimension, BlockPos pos, int slot) {
+        List<SlotRef> refs = cache.itemIndex.get(itemId);
         if (refs == null) return;
         synchronized (refs) {
-            refs.removeIf(r -> r.pos().equals(pos) && r.slot() == slot);
-            if (refs.isEmpty()) itemIndex.remove(itemId);
+            refs.removeIf(r -> r.dimension().equals(dimension) && r.pos().equals(pos) && r.slot() == slot);
+            if (refs.isEmpty()) cache.itemIndex.remove(itemId);
         }
     }
 
-    public void importContainer(BlockPos pos, List<ScanContainerResultPayload.SlotEntry> entries) {
-        ContainerSnapshot old = containerIndex.remove(pos);
+    public void importContainer(String dimension, BlockPos pos, List<ScanContainerResultPayload.SlotEntry> entries) {
+        DimensionCache cache = getOrCreateCache(dimension);
+        ContainerSnapshot old = cache.containerIndex.remove(pos);
         if (old != null)
             for (ScanContainerResultPayload.SlotEntry e : old.entries())
-                removeSlotRef(e.itemId(), pos, e.slot());
+                removeSlotRef(cache, e.itemId(), dimension, pos, e.slot());
         if (entries.isEmpty()) {
-            containerIndex.put(pos, new ContainerSnapshot(List.of(), now()));
+            cache.containerIndex.put(pos, new ContainerSnapshot(List.of(), now()));
             return;
         }
-        containerIndex.put(pos, new ContainerSnapshot(List.copyOf(entries), now()));
+        cache.containerIndex.put(pos, new ContainerSnapshot(List.copyOf(entries), now()));
         for (ScanContainerResultPayload.SlotEntry e : entries)
-            itemIndex.computeIfAbsent(e.itemId(),
+            cache.itemIndex.computeIfAbsent(e.itemId(),
                     k -> Collections.synchronizedList(new ArrayList<>()))
-                    .add(new SlotRef(pos, e.slot()));
+                    .add(new SlotRef(dimension, pos, e.slot()));
     }
 
-    public Map<BlockPos, List<ScanContainerResultPayload.SlotEntry>> exportContainerData() {
-        Map<BlockPos, List<ScanContainerResultPayload.SlotEntry>> data = new HashMap<>();
-        for (Map.Entry<BlockPos, ContainerSnapshot> e : containerIndex.entrySet())
-            data.put(e.getKey(), new ArrayList<>(e.getValue().entries()));
+    public Map<DimensionKey, List<ScanContainerResultPayload.SlotEntry>> exportContainerData() {
+        Map<DimensionKey, List<ScanContainerResultPayload.SlotEntry>> data = new HashMap<>();
+        for (var dimEntry : dimensionCaches.entrySet()) {
+            String dimension = dimEntry.getKey();
+            DimensionCache cache = dimEntry.getValue();
+            for (Map.Entry<BlockPos, ContainerSnapshot> e : cache.containerIndex.entrySet())
+                data.put(new DimensionKey(dimension, e.getKey()), new ArrayList<>(e.getValue().entries()));
+        }
         return data;
     }
 }

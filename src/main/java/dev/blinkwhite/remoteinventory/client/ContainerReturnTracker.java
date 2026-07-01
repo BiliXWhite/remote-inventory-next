@@ -14,15 +14,15 @@ public class ContainerReturnTracker
 {
     public static final ContainerReturnTracker INSTANCE = new ContainerReturnTracker();
 
-    public record ReturnEntry(BlockPos pos, String itemId, int pass) {}
+    public record ReturnEntry(String dimension, BlockPos pos, String itemId, int pass) {}
 
     private final Deque<ReturnEntry> queue = new ArrayDeque<>();
 
     private ContainerReturnTracker() {}
 
-    public void track(BlockPos pos, String itemId)
+    public void track(String dimension, BlockPos pos, String itemId)
     {
-        this.queue.addLast(new ReturnEntry(pos, itemId, 0));
+        this.queue.addLast(new ReturnEntry(dimension, pos, itemId, 0));
     }
 
     public boolean isEmpty()

@@ -4,15 +4,8 @@ import groovy.json.JsonSlurper
 plugins {
     id("java-library")
     id("maven-publish")
+    id("mod-plugin")
 }
-
-// Inline property accessors (replaces buildSrc ModProjectExtension)
-fun Project.propStr(key: String): String = findProperty(key)?.toString()
-    ?: throw GradleException("Property '$key' not configured")
-
-val modMavenGroup: String by lazy { rootProject.propStr("maven_group") }
-val modArchivesBaseName: String by lazy { rootProject.propStr("archives_base_name") }
-val modVersion: String by lazy { rootProject.propStr("mod_version") }
 
 repositories {
     mavenLocal()
@@ -21,7 +14,7 @@ repositories {
 }
 
 group = modMavenGroup
-version = modVersion
+version = fullProjectVersion
 
 base {
     archivesName.set("$modArchivesBaseName-versionpack")
@@ -35,6 +28,7 @@ fabricSubprojects.forEach {
 
 tasks {
     val collectSubModules by registering {
+        description = "Collect all submodules into a single jar"
         val destDir = layout.buildDirectory.dir("tmp/submods/META-INF/jars")
 
         outputs.upToDateWhen { false }
@@ -86,30 +80,15 @@ tasks {
 
             val jsonFile = layout.buildDirectory.file("resources/main/fabric.mod.json").get().asFile
             if (jsonFile.exists()) {
+                @Suppress("UNCHECKED_CAST")
                 val json = JsonSlurper().parse(jsonFile) as MutableMap<String, Any>
                 json["jars"] = jars
-                json["depends"] = mapOf(
-                    "minecraft" to minecraftVersions.joinToString(" | ")
-                )
+                @Suppress("UNCHECKED_CAST")
+                (json["depends"] as? MutableMap<String, Any>)?.put("minecraft", minecraftVersions)
                 jsonFile.writeText(JsonBuilder(json).toPrettyString())
+
+                println("JAR files: ${jars.size}, Minecraft: $minecraftVersions")
             }
         }
-    }
-
-    named("build") {
-        dependsOn("jar")
-    }
-}
-
-publishing {
-    publications {
-        create<MavenPublication>("mavenJava") {
-            from(components["java"])
-            artifactId = modArchivesBaseName
-            version = modVersion
-        }
-    }
-    repositories {
-        mavenLocal()
     }
 }

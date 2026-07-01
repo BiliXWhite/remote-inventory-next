@@ -2,7 +2,8 @@
   "schemaVersion": 1,
   "id": "${mod_wrapper_id}",
   "version": "${mod_version}",
-  "name": "${mod_name} Version Pack",
+  "icon": "assets/${mod_wrapper_id}/icon.png",
+  "name": "${mod_name}",
   "description": "Aggregated version pack for ${mod_name}.",
   "authors": [
     "BlinkWhite"

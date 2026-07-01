@@ -7,6 +7,7 @@ import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents;
 import net.fabricmc.loader.api.FabricLoader;
+import net.minecraft.client.Minecraft;
 import net.minecraft.core.BlockPos;
 
 import java.io.IOException;
@@ -19,12 +20,12 @@ public class ContainerCachePersister {
     private static final Gson GSON = new Gson();
 
     public static void register() {
-        ClientPlayConnectionEvents.DISCONNECT.register((handler, client) -> save());
-        ClientPlayConnectionEvents.JOIN.register((handler, sender, client) -> load());
+        ClientPlayConnectionEvents.DISCONNECT.register((handler, client) -> save(client));
+        ClientPlayConnectionEvents.JOIN.register((handler, sender, client) -> load(client));
     }
 
-    static void save() {
-        Map<BlockPos, List<ScanContainerResultPayload.SlotEntry>> data =
+    static void save(Minecraft client) {
+        Map<ContainerItemCache.DimensionKey, List<ScanContainerResultPayload.SlotEntry>> data =
                 ContainerItemCache.INSTANCE.exportContainerData();
         if (data.isEmpty()) return;
 
@@ -42,23 +43,26 @@ public class ContainerCachePersister {
 
         List<CacheEntry> entries = new ArrayList<>();
         for (var e : data.entrySet()) {
+            ContainerItemCache.DimensionKey key = e.getKey();
             List<SlotData> slots = new ArrayList<>();
             for (var se : e.getValue())
                 slots.add(new SlotData(se.slot(), paletteIndex.get(se.itemId()), se.count()));
-            entries.add(new CacheEntry(e.getKey().getX(), e.getKey().getY(), e.getKey().getZ(), slots));
+            entries.add(new CacheEntry(key.dimension(), key.pos().getX(), key.pos().getY(), key.pos().getZ(), slots));
         }
 
         try {
-            Files.writeString(cachePath(), GSON.toJson(new CacheFile(palette, entries)));
+            Path path = cachePath(client);
+            Files.createDirectories(path.getParent());
+            Files.writeString(path, GSON.toJson(new CacheFile(palette, entries)));
             Reference.LOGGER.info("[Cache] saved {} containers, {} items to {}",
-                    entries.size(), palette.size(), cachePath());
+                    entries.size(), palette.size(), path);
         } catch (IOException e) {
             Reference.LOGGER.warn("[Cache] save failed: {}", e.getMessage());
         }
     }
 
-    static void load() {
-        Path path = cachePath();
+    static void load(Minecraft client) {
+        Path path = cachePath(client);
         if (!Files.exists(path)) return;
         try {
             String json = Files.readString(path);
@@ -72,7 +76,8 @@ public class ContainerCachePersister {
                     String itemId = s.i >= 0 && s.i < palette.size() ? palette.get(s.i) : "minecraft:air";
                     slots.add(new ScanContainerResultPayload.SlotEntry(s.s, itemId, s.c));
                 }
-                ContainerItemCache.INSTANCE.importContainer(new BlockPos(e.x, e.y, e.z), slots);
+                String dimension = e.d != null ? e.d : "minecraft:overworld";
+                ContainerItemCache.INSTANCE.importContainer(dimension, new BlockPos(e.x, e.y, e.z), slots);
             }
             Reference.LOGGER.info("[Cache] loaded {} containers, {} items from {}",
                     file.c.size(), palette.size(), path);
@@ -81,16 +86,31 @@ public class ContainerCachePersister {
         }
     }
 
-    private static Path cachePath() {
-        return FabricLoader.getInstance().getGameDir().resolve("remote_inventory_cache.json");
+    private static String getCacheKey(Minecraft client) {
+        if (client.getCurrentServer() != null) {
+            return sanitize(client.getCurrentServer().ip);
+        }
+        if (client.getSingleplayerServer() != null) {
+            return "local_" + sanitize(client.getSingleplayerServer().getWorldData().getLevelName());
+        }
+        return "default";
+    }
+
+    private static String sanitize(String name) {
+        return name.replaceAll("[\\\\/:*?\"<>|]", "_");
+    }
+
+    private static Path cachePath(Minecraft client) {
+        return FabricLoader.getInstance().getGameDir()
+                .resolve("remoteinventory").resolve("remote_inventory_cache_" + getCacheKey(client) + ".json");
     }
 
     @SuppressWarnings("unused")
     private static class CacheFile { List<String> p; List<CacheEntry> c;
         CacheFile(List<String> p, List<CacheEntry> c) { this.p = p; this.c = c; } }
     @SuppressWarnings("unused")
-    private static class CacheEntry { int x, y, z; List<SlotData> s;
-        CacheEntry(int x, int y, int z, List<SlotData> s) { this.x = x; this.y = y; this.z = z; this.s = s; } }
+    private static class CacheEntry { String d; int x, y, z; List<SlotData> s;
+        CacheEntry(String d, int x, int y, int z, List<SlotData> s) { this.d = d; this.x = x; this.y = y; this.z = z; this.s = s; } }
     @SuppressWarnings("unused")
     private static class SlotData { int s; int i; int c;
         SlotData(int s, int i, int c) { this.s = s; this.i = i; this.c = c; } }
